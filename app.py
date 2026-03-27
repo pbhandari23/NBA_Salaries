@@ -858,7 +858,6 @@ def main() -> None:
                 }
             ),
             use_container_width=True,
-            hide_index=True,
         )
 
         top_n = st.slider("Show biggest misses", 5, 30, 12, 1)
@@ -870,7 +869,6 @@ def main() -> None:
         st.dataframe(
             misses[["Player", "target_season", "actual", "predicted", "absolute_error", "error_pct"]],
             use_container_width=True,
-            hide_index=True,
         )
 
         accurate_n = st.slider("Show most accurate predictions", 5, 30, 12, 1)
@@ -882,7 +880,6 @@ def main() -> None:
         st.dataframe(
             accurate[["Player", "target_season", "actual", "predicted", "absolute_error", "error_pct"]],
             use_container_width=True,
-            hide_index=True,
         )
 
     with tabs[2]:
@@ -957,7 +954,6 @@ def main() -> None:
                 ]
             ],
             use_container_width=True,
-            hide_index=True,
         )
 
 
