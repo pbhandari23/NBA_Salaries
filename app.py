@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 
 import joblib
@@ -460,12 +461,11 @@ def build_artifact_metadata() -> dict[str, object]:
     for name in ["player_stats.csv", "player_stats_model_ready.csv", "nba_salaries.csv"]:
         path = Path(name)
         if path.exists():
-            stat = path.stat()
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
             files.append(
                 {
                     "name": name,
-                    "size": stat.st_size,
-                    "mtime_ns": stat.st_mtime_ns,
+                    "sha256": digest,
                 }
             )
     return {"version": APP_VERSION, "files": files, "has_xgboost": HAS_XGBOOST}
