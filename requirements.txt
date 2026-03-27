@@ -5,4 +5,4 @@ xgboost
 streamlit
 plotly
 joblib
-altair=4.2.2
+altair==4.2.2
