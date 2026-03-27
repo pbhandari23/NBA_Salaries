@@ -508,6 +508,14 @@ def format_currency(value: float) -> str:
     return f"${value / 1_000_000:,.1f}M"
 
 
+def safe_for_streamlit(df: pd.DataFrame) -> pd.DataFrame:
+    cleaned = df.copy()
+    for column in cleaned.columns:
+        if pd.api.types.is_string_dtype(cleaned[column]) or cleaned[column].dtype == object:
+            cleaned[column] = cleaned[column].astype(str)
+    return cleaned
+
+
 def build_simulator_input(artifacts: ModelArtifacts) -> pd.DataFrame:
     reference = artifacts.forecast_df.sort_values("Season").iloc[-1]
     row = reference[artifacts.feature_columns].copy()
@@ -723,11 +731,11 @@ def main() -> None:
         with left:
             st.subheader("Simulator Output")
             st.write(f"Projected next-year salary: {format_currency(simulator_prediction)}")
-            st.dataframe(
-                simulator_df.T.rename(columns={0: "value"}),
-                use_container_width=True,
-                height=360,
-            )
+        st.dataframe(
+            safe_for_streamlit(simulator_df.T.rename(columns={0: "value"})),
+            use_container_width=True,
+            height=360,
+        )
 
         with right:
             importance_chart = px.bar(
@@ -844,18 +852,20 @@ def main() -> None:
             "than predicting the average salary for every player."
         )
         st.dataframe(
-            artifacts.summary_df.assign(
-                model=lambda df: df["model"],
-                rmse=lambda df: df["rmse"].map(format_currency),
-                mae=lambda df: df["mae"].map(format_currency),
-                r2=lambda df: df["r2"].map(lambda value: f"{value:.3f}"),
-            ).rename(
-                columns={
-                    "model": "model",
-                    "rmse": "avg_rmse",
-                    "mae": "avg_mae",
-                    "r2": "avg_r2",
-                }
+            safe_for_streamlit(
+                artifacts.summary_df.assign(
+                    model=lambda df: df["model"],
+                    rmse=lambda df: df["rmse"].map(format_currency),
+                    mae=lambda df: df["mae"].map(format_currency),
+                    r2=lambda df: df["r2"].map(lambda value: f"{value:.3f}"),
+                ).rename(
+                    columns={
+                        "model": "model",
+                        "rmse": "avg_rmse",
+                        "mae": "avg_mae",
+                        "r2": "avg_r2",
+                    }
+                )
             ),
             use_container_width=True,
         )
@@ -867,7 +877,9 @@ def main() -> None:
         misses["absolute_error"] = misses["absolute_error"].map(format_currency)
         misses["error_pct"] = misses["error_pct"].map(lambda value: f"{value:.0%}")
         st.dataframe(
-            misses[["Player", "target_season", "actual", "predicted", "absolute_error", "error_pct"]],
+            safe_for_streamlit(
+                misses[["Player", "target_season", "actual", "predicted", "absolute_error", "error_pct"]]
+            ),
             use_container_width=True,
         )
 
@@ -878,7 +890,9 @@ def main() -> None:
         accurate["absolute_error"] = accurate["absolute_error"].map(format_currency)
         accurate["error_pct"] = accurate["error_pct"].map(lambda value: f"{value:.0%}")
         st.dataframe(
-            accurate[["Player", "target_season", "actual", "predicted", "absolute_error", "error_pct"]],
+            safe_for_streamlit(
+                accurate[["Player", "target_season", "actual", "predicted", "absolute_error", "error_pct"]]
+            ),
             use_container_width=True,
         )
 
@@ -938,21 +952,23 @@ def main() -> None:
         display_df["absolute_error"] = display_df["absolute_error"].map(format_currency)
 
         st.dataframe(
-            display_df[
-                [
-                    "Player",
-                    "Season",
-                    "target_season",
-                    "MIN",
-                    "PTS",
-                    "REB",
-                    "AST",
-                    "current_salary",
-                    "actual_next_salary",
-                    "predicted_next_salary",
-                    "absolute_error",
+            safe_for_streamlit(
+                display_df[
+                    [
+                        "Player",
+                        "Season",
+                        "target_season",
+                        "MIN",
+                        "PTS",
+                        "REB",
+                        "AST",
+                        "current_salary",
+                        "actual_next_salary",
+                        "predicted_next_salary",
+                        "absolute_error",
+                    ]
                 ]
-            ],
+            ),
             use_container_width=True,
         )
 
