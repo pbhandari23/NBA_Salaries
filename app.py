@@ -516,6 +516,19 @@ def safe_for_streamlit(df: pd.DataFrame) -> pd.DataFrame:
     return cleaned
 
 
+def render_plain_table(df: pd.DataFrame, height: int | None = None) -> None:
+    cleaned = df.copy()
+    cleaned.columns = [str(column) for column in cleaned.columns]
+    for column in cleaned.columns:
+        cleaned[column] = cleaned[column].map(lambda value: "" if pd.isna(value) else str(value))
+
+    table_html = cleaned.to_html(index=False, border=1)
+    if height is None:
+        st.markdown(table_html, unsafe_allow_html=True)
+    else:
+        st.components.v1.html(table_html, height=height, scrolling=True)
+
+
 def build_simulator_input(artifacts: ModelArtifacts) -> pd.DataFrame:
     reference = artifacts.forecast_df.sort_values("Season").iloc[-1]
     row = reference[artifacts.feature_columns].copy()
@@ -731,11 +744,7 @@ def main() -> None:
         with left:
             st.subheader("Simulator Output")
             st.write(f"Projected next-year salary: {format_currency(simulator_prediction)}")
-        st.dataframe(
-            safe_for_streamlit(simulator_df.T.rename(columns={0: "value"})),
-            use_container_width=True,
-            height=360,
-        )
+            render_plain_table(safe_for_streamlit(simulator_df.T.rename(columns={0: "value"})), height=360)
 
         with right:
             importance_chart = px.bar(
@@ -851,7 +860,7 @@ def main() -> None:
             "Negative R² is possible. It means that, for that validation slice, the model did worse "
             "than predicting the average salary for every player."
         )
-        st.dataframe(
+        render_plain_table(
             safe_for_streamlit(
                 artifacts.summary_df.assign(
                     model=lambda df: df["model"],
@@ -866,8 +875,7 @@ def main() -> None:
                         "r2": "avg_r2",
                     }
                 )
-            ),
-            use_container_width=True,
+            )
         )
 
         top_n = st.slider("Show biggest misses", 5, 30, 12, 1)
@@ -876,11 +884,10 @@ def main() -> None:
         misses["predicted"] = misses["predicted_next_salary"].map(format_currency)
         misses["absolute_error"] = misses["absolute_error"].map(format_currency)
         misses["error_pct"] = misses["error_pct"].map(lambda value: f"{value:.0%}")
-        st.dataframe(
+        render_plain_table(
             safe_for_streamlit(
                 misses[["Player", "target_season", "actual", "predicted", "absolute_error", "error_pct"]]
-            ),
-            use_container_width=True,
+            )
         )
 
         accurate_n = st.slider("Show most accurate predictions", 5, 30, 12, 1)
@@ -889,11 +896,10 @@ def main() -> None:
         accurate["predicted"] = accurate["predicted_next_salary"].map(format_currency)
         accurate["absolute_error"] = accurate["absolute_error"].map(format_currency)
         accurate["error_pct"] = accurate["error_pct"].map(lambda value: f"{value:.0%}")
-        st.dataframe(
+        render_plain_table(
             safe_for_streamlit(
                 accurate[["Player", "target_season", "actual", "predicted", "absolute_error", "error_pct"]]
-            ),
-            use_container_width=True,
+            )
         )
 
     with tabs[2]:
@@ -951,7 +957,7 @@ def main() -> None:
         display_df["predicted_next_salary"] = display_df["predicted_next_salary"].map(format_currency)
         display_df["absolute_error"] = display_df["absolute_error"].map(format_currency)
 
-        st.dataframe(
+        render_plain_table(
             safe_for_streamlit(
                 display_df[
                     [
@@ -968,8 +974,7 @@ def main() -> None:
                         "absolute_error",
                     ]
                 ]
-            ),
-            use_container_width=True,
+            )
         )
 
 
