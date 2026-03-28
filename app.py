@@ -486,9 +486,13 @@ def load_saved_artifacts() -> ModelArtifacts | None:
 
 
 def save_artifacts(artifacts: ModelArtifacts) -> None:
-    ARTIFACT_DIR.mkdir(exist_ok=True)
-    joblib.dump(artifacts, ARTIFACT_PATH)
-    joblib.dump(build_artifact_metadata(), METADATA_PATH)
+    try:
+        ARTIFACT_DIR.mkdir(exist_ok=True)
+        joblib.dump(artifacts, ARTIFACT_PATH)
+        joblib.dump(build_artifact_metadata(), METADATA_PATH)
+    except Exception:
+        # streamlit cloud can be picky about pickling app objects, so don't fail the app here
+        return
 
 
 @st.cache_resource(show_spinner=True)
