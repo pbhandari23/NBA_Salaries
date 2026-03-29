@@ -443,6 +443,13 @@ def train_dashboard_model() -> ModelArtifacts:
         .head(12)
     )
     feature_importance_df["display_feature"] = feature_importance_df["feature"].map(format_feature_label)
+    total_importance = float(feature_importance_df["importance"].sum())
+    if total_importance > 0:
+        feature_importance_df["importance_pct"] = (
+            feature_importance_df["importance"] / total_importance * 100
+        )
+    else:
+        feature_importance_df["importance_pct"] = 0.0
 
     return ModelArtifacts(
         forecast_df=forecast_df,
@@ -531,6 +538,15 @@ def render_plain_table(df: pd.DataFrame, height: int | None = None) -> None:
         st.markdown(table_html, unsafe_allow_html=True)
     else:
         st.components.v1.html(table_html, height=height, scrolling=True)
+
+
+def build_simulator_display_table(simulator_df: pd.DataFrame) -> pd.DataFrame:
+    row = simulator_df.iloc[0]
+    return (
+        row.rename_axis("feature")
+        .reset_index(name="value")
+        .assign(feature=lambda df: df["feature"].map(format_feature_label))
+    )
 
 
 def build_simulator_input(artifacts: ModelArtifacts) -> pd.DataFrame:
@@ -748,12 +764,18 @@ def main() -> None:
         with left:
             st.subheader("Simulator Output")
             st.write(f"Projected next-year salary: {format_currency(simulator_prediction)}")
-            render_plain_table(safe_for_streamlit(simulator_df.T.rename(columns={0: "value"})), height=360)
+            render_plain_table(
+                safe_for_streamlit(build_simulator_display_table(simulator_df)),
+                height=360,
+            )
 
         with right:
+            importance_chart_df = artifacts.feature_importance_df.sort_values(
+                "importance_pct", ascending=True
+            ).copy()
             importance_chart = px.bar(
-                artifacts.feature_importance_df.sort_values("importance", ascending=True),
-                x="importance",
+                importance_chart_df,
+                x="importance_pct",
                 y="display_feature",
                 orientation="h",
                 color_discrete_sequence=["#caa46a"],
@@ -765,11 +787,12 @@ def main() -> None:
                 font_color="#000000",
                 height=360,
                 margin=dict(l=24, r=10, t=50, b=10),
-                xaxis_title="Relative importance",
+                xaxis_title="share of displayed importance (%)",
                 yaxis_title="",
             )
             importance_chart.update_traces(marker_color="#000000", marker_line_color="#000000", marker_line_width=1)
             importance_chart.update_yaxes(automargin=True)
+            importance_chart.update_xaxes(ticksuffix="%")
             st.plotly_chart(importance_chart, use_container_width=True)
 
     with tabs[1]:
@@ -780,9 +803,16 @@ def main() -> None:
         )
 
         holdout_chart = holdout.copy()
-        holdout_chart["next_salary_m"] = holdout_chart["next_salary"] / 1_000_000
-        holdout_chart["predicted_next_salary_m"] = holdout_chart["predicted_next_salary"] / 1_000_000
-        holdout_chart["absolute_error_m"] = holdout_chart["absolute_error"] / 1_000_000
+        holdout_chart["next_salary_m"] = pd.to_numeric(holdout_chart["next_salary"], errors="coerce") / 1_000_000
+        holdout_chart["predicted_next_salary_m"] = pd.to_numeric(
+            holdout_chart["predicted_next_salary"], errors="coerce"
+        ) / 1_000_000
+        holdout_chart["absolute_error_m"] = pd.to_numeric(
+            holdout_chart["absolute_error"], errors="coerce"
+        ) / 1_000_000
+        holdout_chart = holdout_chart.dropna(
+            subset=["next_salary_m", "predicted_next_salary_m", "absolute_error_m"]
+        ).copy()
         scatter = px.scatter(
             holdout_chart,
             x="next_salary_m",
@@ -819,6 +849,7 @@ def main() -> None:
             coloraxis_colorbar=dict(tickformat=",.2f", ticksuffix=" M"),
         )
         scatter.update_traces(
+            marker=dict(size=8, opacity=0.75),
             hovertemplate=(
                 "<b>%{hovertext}</b><br>"
                 "Actual next salary: %{x:,.2f} M<br>"
@@ -831,7 +862,9 @@ def main() -> None:
         st.plotly_chart(scatter, use_container_width=True)
 
         results_chart = artifacts.results_df.copy()
-        results_chart["mae_m"] = results_chart["mae"] / 1_000_000
+        results_chart["season"] = pd.to_numeric(results_chart["season"], errors="coerce")
+        results_chart["mae_m"] = pd.to_numeric(results_chart["mae"], errors="coerce") / 1_000_000
+        results_chart = results_chart.dropna(subset=["season", "mae_m"]).copy()
         season_lines = px.line(
             results_chart,
             x="season",
